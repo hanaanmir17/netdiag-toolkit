@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetDiag Toolkit</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          panel: '#111827',
+          panel2: '#1a2233',
+          accent: '#22d3ee',
+        },
+        fontFamily: {
+          mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+        }
+      }
+    }
+  }
+</script>
+<style>
+  body { background: #0b0f19; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+  .tab-btn.active { background: #164e63; color: #67e8f9; border-color: #22d3ee; }
+  .status-open { color: #4ade80; }
+  .status-closed { color: #f87171; }
+  .status-filtered { color: #fbbf24; }
+  .spinner {
+    border: 3px solid #1e293b;
+    border-top-color: #22d3ee;
+    border-radius: 50%;
+    width: 22px; height: 22px;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body class="min-h-screen text-slate-200 font-sans">
+
+<div class="max-w-5xl mx-auto px-4 py-8">
+
+  <header class="mb-8 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl md:text-3xl font-bold text-white tracking-tight">
+        <span class="text-accent">Net</span>Diag Toolkit
+      </h1>
+      <p class="text-slate-400 text-sm mt-1">Real ICMP, traceroute, DNS, and TCP diagnostics — no simulated data.</p>
+    </div>
+    <div class="hidden md:block text-right text-xs text-slate-500">
+      <div>Ping &middot; Traceroute &middot; DNS &middot; Port Scan</div>
+      <div>Built by Hanaan Mir</div>
+    </div>
+  </header>
+
+  <nav class="flex flex-wrap gap-2 mb-6 border-b border-slate-800 pb-4">
+    <button data-tab="ping" class="tab-btn active px-4 py-2 rounded-lg border border-slate-700 bg-panel text-slate-300 text-sm font-medium transition">Ping</button>
+    <button data-tab="traceroute" class="tab-btn px-4 py-2 rounded-lg border border-slate-700 bg-panel text-slate-300 text-sm font-medium transition">Traceroute</button>
+    <button data-tab="dns" class="tab-btn px-4 py-2 rounded-lg border border-slate-700 bg-panel text-slate-300 text-sm font-medium transition">DNS Lookup</button>
+    <button data-tab="portscan" class="tab-btn px-4 py-2 rounded-lg border border-slate-700 bg-panel text-slate-300 text-sm font-medium transition">Port Scanner</button>
+  </nav>
+
+  <!-- PING -->
+  <section id="panel-ping" class="tab-panel">
+    <div class="bg-panel rounded-xl border border-slate-800 p-5 mb-4">
+      <label class="block text-sm text-slate-400 mb-2">Hostname or IP address</label>
+      <div class="flex gap-2">
+        <input id="ping-target" type="text" placeholder="e.g. google.com or 8.8.8.8"
+          class="flex-1 bg-panel2 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-mono text-sm focus:outline-none focus:border-accent">
+        <button id="ping-btn" class="bg-accent text-slate-900 font-semibold px-5 py-2 rounded-lg hover:bg-cyan-300 transition">Ping</button>
+      </div>
+    </div>
+    <div id="ping-status" class="mb-3"></div>
+    <div id="ping-results"></div>
+  </section>
+
+  <!-- TRACEROUTE -->
+  <section id="panel-traceroute" class="tab-panel hidden">
+    <div class="bg-panel rounded-xl border border-slate-800 p-5 mb-4">
+      <label class="block text-sm text-slate-400 mb-2">Hostname or IP address</label>
+      <div class="flex gap-2">
+        <input id="traceroute-target" type="text" placeholder="e.g. google.com or 1.1.1.1"
+          class="flex-1 bg-panel2 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-mono text-sm focus:outline-none focus:border-accent">
+        <button id="traceroute-btn" class="bg-accent text-slate-900 font-semibold px-5 py-2 rounded-lg hover:bg-cyan-300 transition">Trace</button>
+      </div>
+      <p class="text-xs text-slate-500 mt-2">May take up to 30 seconds. Some hops may show as "*" if routers block ICMP/UDP probes.</p>
+    </div>
+    <div id="traceroute-status" class="mb-3"></div>
+    <div id="traceroute-results"></div>
+  </section>
+
+  <!-- DNS -->
+  <section id="panel-dns" class="tab-panel hidden">
+    <div class="bg-panel rounded-xl border border-slate-800 p-5 mb-4">
+      <label class="block text-sm text-slate-400 mb-2">Hostname</label>
+      <div class="flex gap-2">
+        <input id="dns-target" type="text" placeholder="e.g. google.com"
+          class="flex-1 bg-panel2 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-mono text-sm focus:outline-none focus:border-accent">
+        <button id="dns-btn" class="bg-accent text-slate-900 font-semibold px-5 py-2 rounded-lg hover:bg-cyan-300 transition">Lookup</button>
+      </div>
+    </div>
+    <div id="dns-status" class="mb-3"></div>
+    <div id="dns-results" class="grid md:grid-cols-2 gap-4"></div>
+  </section>
+
+  <!-- PORT SCAN -->
+  <section id="panel-portscan" class="tab-panel hidden">
+    <div class="bg-panel rounded-xl border border-slate-800 p-5 mb-4">
+      <label class="block text-sm text-slate-400 mb-2">Hostname or IP address</label>
+      <div class="flex gap-2 mb-3">
+        <input id="portscan-target" type="text" placeholder="e.g. 127.0.0.1"
+          class="flex-1 bg-panel2 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-mono text-sm focus:outline-none focus:border-accent">
+        <button id="portscan-btn" class="bg-accent text-slate-900 font-semibold px-5 py-2 rounded-lg hover:bg-cyan-300 transition">Scan</button>
+      </div>
+      <label class="block text-sm text-slate-400 mb-2">Ports (comma-separated, defaults to common ports)</label>
+      <input id="portscan-ports" type="text" placeholder="{{ common_ports|join(',') }}"
+        class="w-full bg-panel2 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 font-mono text-sm focus:outline-none focus:border-accent">
+    </div>
+    <div id="portscan-status" class="mb-3"></div>
+    <div id="portscan-results"></div>
+  </section>
+
+</div>
+
+<script>
+const tabs = document.querySelectorAll('.tab-btn');
+const panels = document.querySelectorAll('.tab-panel');
+tabs.forEach(btn => {
+  btn.addEventListener('click', () => {
+    tabs.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    panels.forEach(p => p.classList.add('hidden'));
+    document.getElementById('panel-' + btn.dataset.tab).classList.remove('hidden');
+  });
+});
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function spinner(msg) {
+  return `<div class="flex items-center gap-3 text-slate-400 text-sm">
+    <div class="spinner"></div><span>${escapeHtml(msg)}</span></div>`;
+}
+
+function errorBox(msg) {
+  return `<div class="bg-red-950/40 border border-red-800 text-red-300 text-sm rounded-lg px-4 py-3">${escapeHtml(msg)}</div>`;
+}
+
+async function postJson(url, body) {
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  let data;
+  try { data = await resp.json(); } catch (e) { data = { ok: false, error: 'Invalid server response.' }; }
+  if (!resp.ok && !data.error) data.error = 'Request failed with status ' + resp.status;
+  return data;
+}
+
+// ---------------- PING ----------------
+document.getElementById('ping-btn').addEventListener('click', async () => {
+  const target = document.getElementById('ping-target').value.trim();
+  const statusEl = document.getElementById('ping-status');
+  const resultsEl = document.getElementById('ping-results');
+  resultsEl.innerHTML = '';
+  if (!target) { statusEl.innerHTML = errorBox('Enter a hostname or IP address.'); return; }
+  statusEl.innerHTML = spinner('Pinging ' + target + ' ...');
+
+  const data = await postJson('/api/ping', { target });
+  if (data.error && !data.raw_output) {
+    statusEl.innerHTML = errorBox(data.error);
+    return;
+  }
+  statusEl.innerHTML = '';
+
+  const lossColor = (data.packet_loss_pct ?? 100) === 0 ? 'text-green-400' : (data.packet_loss_pct < 100 ? 'text-amber-400' : 'text-red-400');
+  resultsEl.innerHTML = `
+    <div class="bg-panel rounded-xl border border-slate-800 p-5">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
+        <div><div class="text-slate-500">Transmitted</div><div class="text-lg font-semibold">${data.packets_transmitted ?? '-'}</div></div>
+        <div><div class="text-slate-500">Received</div><div class="text-lg font-semibold">${data.packets_received ?? '-'}</div></div>
+        <div><div class="text-slate-500">Packet Loss</div><div class="text-lg font-semibold ${lossColor}">${data.packet_loss_pct ?? '-'}%</div></div>
+        <div><div class="text-slate-500">Avg RTT</div><div class="text-lg font-semibold text-accent">${data.avg_rtt_ms ?? '-'} ms</div></div>
+      </div>
+      <div class="grid grid-cols-3 gap-4 mb-4 text-sm text-slate-400">
+        <div>Min: <span class="text-slate-200">${data.min_rtt_ms ?? '-'} ms</span></div>
+        <div>Max: <span class="text-slate-200">${data.max_rtt_ms ?? '-'} ms</span></div>
+        <div>Mdev: <span class="text-slate-200">${data.mdev_rtt_ms ?? '-'} ms</span></div>
+      </div>
+      <details class="text-xs text-slate-500">
+        <summary class="cursor-pointer hover:text-slate-300">Raw output</summary>
+        <pre class="mt-2 whitespace-pre-wrap font-mono bg-panel2 rounded-lg p-3 text-slate-300">${escapeHtml(data.raw_output)}</pre>
+      </details>
+    </div>`;
+});
+
+// ---------------- TRACEROUTE ----------------
+document.getElementById('traceroute-btn').addEventListener('click', async () => {
+  const target = document.getElementById('traceroute-target').value.trim();
+  const statusEl = document.getElementById('traceroute-status');
+  const resultsEl = document.getElementById('traceroute-results');
+  resultsEl.innerHTML = '';
+  if (!target) { statusEl.innerHTML = errorBox('Enter a hostname or IP address.'); return; }
+  statusEl.innerHTML = spinner('Tracing route to ' + target + ' (this can take up to 30s) ...');
+
+  const data = await postJson('/api/traceroute', { target });
+  if (!data.ok) {
+    statusEl.innerHTML = errorBox(data.error || 'Traceroute failed.');
+    return;
+  }
+  statusEl.innerHTML = '';
+
+  const rows = data.hops.map(h => {
+    const rtts = h.rtts_ms && h.rtts_ms.length ? h.rtts_ms.map(v => v.toFixed(2) + ' ms').join(', ') : '<span class="text-slate-500">*</span>';
+    const hostLabel = h.host ? escapeHtml(h.host) : (h.ip ? '' : '<span class="text-slate-500">request timed out</span>');
+    return `<tr class="border-b border-slate-800">
+      <td class="px-3 py-2 text-slate-500">${h.hop}</td>
+      <td class="px-3 py-2">${hostLabel}</td>
+      <td class="px-3 py-2 font-mono text-slate-300">${escapeHtml(h.ip) || ''}</td>
+      <td class="px-3 py-2 font-mono">${rtts}</td>
+    </tr>`;
+  }).join('');
+
+  resultsEl.innerHTML = `
+    <div class="bg-panel rounded-xl border border-slate-800 p-5 overflow-x-auto">
+      <table class="w-full text-sm text-left">
+        <thead><tr class="text-slate-500 border-b border-slate-700">
+          <th class="px-3 py-2">Hop</th><th class="px-3 py-2">Host</th><th class="px-3 py-2">IP</th><th class="px-3 py-2">RTT</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="4" class="px-3 py-4 text-slate-500">No hops recorded.</td></tr>'}</tbody>
+      </table>
+    </div>`;
+});
+
+// ---------------- DNS ----------------
+document.getElementById('dns-btn').addEventListener('click', async () => {
+  const hostname = document.getElementById('dns-target').value.trim();
+  const statusEl = document.getElementById('dns-status');
+  const resultsEl = document.getElementById('dns-results');
+  resultsEl.innerHTML = '';
+  if (!hostname) { statusEl.innerHTML = errorBox('Enter a hostname.'); return; }
+  statusEl.innerHTML = spinner('Resolving ' + hostname + ' ...');
+
+  const data = await postJson('/api/dns', { hostname });
+  if (!data.ok) {
+    statusEl.innerHTML = errorBox(data.error || 'DNS lookup failed.');
+    return;
+  }
+  statusEl.innerHTML = '';
+
+  const order = ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'TXT'];
+  resultsEl.innerHTML = order.map(rtype => {
+    const rec = data.records[rtype];
+    let body;
+    if (!rec) {
+      body = '<div class="text-slate-500 text-sm">No data</div>';
+    } else if (Array.isArray(rec)) {
+      body = rec.length
+        ? '<ul class="space-y-1">' + rec.map(v => `<li class="font-mono text-sm text-slate-200 break-all">${escapeHtml(v)}</li>`).join('') + '</ul>'
+        : '<div class="text-slate-500 text-sm">No records</div>';
+    } else {
+      body = `<div class="text-amber-400 text-sm">${escapeHtml(rec.error)}</div>`;
+    }
+    return `<div class="bg-panel rounded-xl border border-slate-800 p-4">
+      <div class="text-accent font-semibold text-sm mb-2">${rtype}</div>
+      ${body}
+    </div>`;
+  }).join('');
+});
+
+// ---------------- PORT SCAN ----------------
+document.getElementById('portscan-btn').addEventListener('click', async () => {
+  const target = document.getElementById('portscan-target').value.trim();
+  const portsRaw = document.getElementById('portscan-ports').value.trim();
+  const statusEl = document.getElementById('portscan-status');
+  const resultsEl = document.getElementById('portscan-results');
+  resultsEl.innerHTML = '';
+  if (!target) { statusEl.innerHTML = errorBox('Enter a hostname or IP address.'); return; }
+
+  let ports = null;
+  if (portsRaw) {
+    ports = portsRaw.split(',').map(p => p.trim()).filter(Boolean).map(Number);
+    if (ports.some(p => !Number.isInteger(p) || p < 1 || p > 65535)) {
+      statusEl.innerHTML = errorBox('Ports must be integers between 1 and 65535.');
+      return;
+    }
+  }
+
+  statusEl.innerHTML = spinner('Scanning ports on ' + target + ' ...');
+
+  const data = await postJson('/api/portscan', { target, ports });
+  if (!data.ok) {
+    statusEl.innerHTML = errorBox(data.error || 'Port scan failed.');
+    return;
+  }
+  statusEl.innerHTML = '';
+
+  const rows = data.results.map(r => `<tr class="border-b border-slate-800">
+    <td class="px-3 py-2 font-mono">${r.port}</td>
+    <td class="px-3 py-2">${escapeHtml(r.service || '-')}</td>
+    <td class="px-3 py-2 font-semibold status-${r.status}">${r.status.toUpperCase()}</td>
+  </tr>`).join('');
+
+  resultsEl.innerHTML = `
+    <div class="bg-panel rounded-xl border border-slate-800 p-5 overflow-x-auto">
+      <table class="w-full text-sm text-left">
+        <thead><tr class="text-slate-500 border-b border-slate-700">
+          <th class="px-3 py-2">Port</th><th class="px-3 py-2">Service</th><th class="px-3 py-2">Status</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+});
+</script>
+</body>
+</html>
