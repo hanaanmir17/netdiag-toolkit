@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run test suite
+        # NOTE: GitHub-hosted runners (and most CI sandboxes) do not grant
+        # raw ICMP socket permissions and can have restricted outbound
+        # network access, so tests marked `network` (real ping/traceroute
+        # subprocess calls, and live DNS lookups) are excluded here. They
+        # still run fine on a normal dev machine (`pytest` with no -m
+        # filter) or in this project's own verification. Everything else -
+        # input validation, the ping/traceroute output parsers, and the
+        # real-socket port scanner tests against a local test server -
+        # needs no special privileges and always runs in CI.
+        run: pytest -v -m "not network"
