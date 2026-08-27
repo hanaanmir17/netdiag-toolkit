@@ -1,6 +1,7 @@
 # NetDiag Toolkit
 
 [![Portfolio Projects](https://img.shields.io/badge/Portfolio-Projects-2088FF?style=flat-square&logo=github&logoColor=white)](https://github.com/users/hanaanmir17/projects/2)
+[![CI](https://github.com/hanaanmir17/netdiag-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/hanaanmir17/netdiag-toolkit/actions/workflows/ci.yml)
 
 A real, working network diagnostics dashboard: ping, traceroute, DNS lookup,
 and TCP port scanning, all backed by actual system networking calls — not
